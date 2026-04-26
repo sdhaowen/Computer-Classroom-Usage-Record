@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>后台管理 - 计算机教室签到</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-page">
+    <div class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <h1>后台管理</h1>
+          <p>签到记录筛选、导出与基础数据维护</p>
+        </div>
+        <a class="btn-secondary" href="/">返回学生签到</a>
+      </header>
+
+      <section class="admin-summary" id="summaryCards"></section>
+
+      <section class="admin-panel">
+        <h2>记录筛选</h2>
+        <form id="adminFilterForm" class="admin-grid">
+          <label>
+            学期
+            <select id="aSemester"></select>
+          </label>
+          <label>
+            周次
+            <select id="aWeek"></select>
+          </label>
+          <label>
+            班级
+            <select id="aClassName"></select>
+          </label>
+          <label>
+            学生姓名
+            <input id="aStudentName" type="text" placeholder="支持模糊查询" />
+          </label>
+          <label>
+            授课教师
+            <input id="aTeacher" type="text" placeholder="例如：王老师" />
+          </label>
+          <label>
+            电脑状态
+            <select id="aMachineStatus"></select>
+          </label>
+          <label>
+            开始日期
+            <input id="aStartDate" type="date" />
+          </label>
+          <label>
+            结束日期
+            <input id="aEndDate" type="date" />
+          </label>
+          <div class="admin-actions full-row">
+            <button type="submit" class="btn-primary">应用筛选</button>
+            <button id="clearAdminFilterBtn" type="button" class="btn-secondary">清空筛选</button>
+            <button id="exportCsvBtn" type="button" class="btn-secondary">导出 CSV</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-panel">
+        <h2>签到记录（最多 1000 条）</h2>
+        <div class="table-wrap">
+          <table id="adminRecordsTable">
+            <thead>
+              <tr>
+                <th>学期</th>
+                <th>周次</th>
+                <th>班级</th>
+                <th>学生姓名</th>
+                <th>学习内容</th>
+                <th>电脑状态</th>
+                <th>授课教师</th>
+                <th>时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p id="adminRecordsMessage" class="message"></p>
+      </section>
+
+      <section class="admin-panel">
+        <h2>数据导入</h2>
+        <div class="admin-split">
+          <div class="mini-panel">
+            <h3>导入教师（每行一个姓名）</h3>
+            <textarea id="teacherImport" rows="6" placeholder="王老师&#10;李老师"></textarea>
+            <button id="importTeachersBtn" type="button" class="btn-primary">导入教师</button>
+          </div>
+          <div class="mini-panel">
+            <h3>导入教学内容（每行一条）</h3>
+            <input id="contentSemester" type="text" placeholder="目标学期，例如：2026-2027第一学期" />
+            <textarea
+              id="contentImport"
+              rows="6"
+              placeholder="第1周：机房规则与计算机基础认知"
+            ></textarea>
+            <button id="importContentsBtn" type="button" class="btn-primary">导入教学内容</button>
+          </div>
+        </div>
+        <div class="mini-panel">
+          <h3>导入签到记录 CSV</h3>
+          <p class="tips">表头：学期,周次,班级,学生姓名,学习内容,机器情况,授课教师</p>
+          <textarea
+            id="recordsCsv"
+            rows="6"
+            placeholder="学期,周次,班级,学生姓名,学习内容,机器情况,授课教师"
+          ></textarea>
+          <div class="input-row">
+            <select id="importMode">
+              <option value="append">追加</option>
+              <option value="replace">覆盖</option>
+            </select>
+            <button id="importRecordsBtn" type="button" class="btn-primary">导入记录</button>
+          </div>
+        </div>
+        <p id="adminImportMessage" class="message"></p>
+      </section>
+
+      <section class="admin-panel">
+        <h2>基础数据维护</h2>
+        <div class="admin-split">
+          <div class="mini-panel">
+            <h3>学期管理</h3>
+            <div class="input-row">
+              <input id="newSemester" type="text" placeholder="例如：2026-2027第一学期" />
+              <button id="addSemesterBtn" type="button" class="btn-primary">新增</button>
+            </div>
+            <ul id="semesterList" class="item-list"></ul>
+          </div>
+
+          <div class="mini-panel">
+            <h3>班级管理</h3>
+            <div class="input-row">
+              <input id="newClassName" type="text" placeholder="例如：六年级一班" />
+              <button id="addClassBtn" type="button" class="btn-primary">新增</button>
+            </div>
+            <ul id="classList" class="item-list"></ul>
+          </div>
+        </div>
+        <p id="adminMetaMessage" class="message"></p>
+      </section>
+    </div>
+    <script src="/admin.js"></script>
+  </body>
+</html>

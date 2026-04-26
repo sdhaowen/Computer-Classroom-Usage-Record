@@ -10,7 +10,9 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
-const CLASS_OPTIONS = [
+const MACHINE_OPTIONS = ["正常", "不正常"];
+const DEFAULT_SEMESTER = "2025-2026第一学期";
+const DEFAULT_CLASS_OPTIONS = [
   "三年级一班",
   "三年级二班",
   "四年级一班",
@@ -18,10 +20,6 @@ const CLASS_OPTIONS = [
   "五年级一班",
   "五年级二班",
 ];
-
-const MACHINE_OPTIONS = ["正常", "不正常"];
-
-const DEFAULT_SEMESTER = "2025-2026第一学期";
 const DEFAULT_TEACHERS = ["王老师", "李老师"];
 const DEFAULT_CONTENTS = [
   "第1周：机房规则与计算机基础认知",
@@ -63,10 +61,11 @@ function ensureDir(targetDir) {
 }
 
 function uniqueTrimmedList(list) {
+  const items = Array.isArray(list) ? list : [];
   const seen = Object.create(null);
   const result = [];
-  for (let i = 0; i < list.length; i += 1) {
-    const value = String(list[i] || "").trim();
+  for (let i = 0; i < items.length; i += 1) {
+    const value = String(items[i] || "").trim();
     if (!value || seen[value]) {
       continue;
     }
@@ -76,14 +75,112 @@ function uniqueTrimmedList(list) {
   return result;
 }
 
+function buildWeekOptions() {
+  const weeks = [];
+  for (let i = 1; i <= 30; i += 1) {
+    weeks.push(i);
+  }
+  return weeks;
+}
+
+function ensureSemester(semester) {
+  const normalized = String(semester || "").trim();
+  if (!normalized) {
+    return;
+  }
+  if (db.semesters.indexOf(normalized) === -1) {
+    db.semesters.push(normalized);
+  }
+}
+
+function ensureClass(className) {
+  const normalized = String(className || "").trim();
+  if (!normalized) {
+    return;
+  }
+  if (db.classOptions.indexOf(normalized) === -1) {
+    db.classOptions.push(normalized);
+  }
+}
+
+function ensureTeacher(teacher) {
+  const normalized = String(teacher || "").trim();
+  if (!normalized) {
+    return;
+  }
+  if (db.teachers.indexOf(normalized) === -1) {
+    db.teachers.push(normalized);
+  }
+}
+
+function ensureContent(semester, content) {
+  const semesterName = String(semester || "").trim();
+  const contentName = String(content || "").trim();
+  if (!semesterName || !contentName) {
+    return;
+  }
+  if (!db.contentsBySemester[semesterName]) {
+    db.contentsBySemester[semesterName] = [];
+  }
+  if (db.contentsBySemester[semesterName].indexOf(contentName) === -1) {
+    db.contentsBySemester[semesterName].push(contentName);
+  }
+}
+
+function generateRecordId(seed) {
+  const random = Math.floor(Math.random() * 100000);
+  return "rec_" + Date.now() + "_" + seed + "_" + random;
+}
+
+function normalizeDateString(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  const time = new Date(raw).getTime();
+  if (Number.isNaN(time)) {
+    return "";
+  }
+  return new Date(time).toISOString().slice(0, 10);
+}
+
+function normalizeStoredRecord(input, index) {
+  const now = new Date().toISOString();
+  const semester = String(input && input.semester ? input.semester : DEFAULT_SEMESTER).trim();
+  const week = Number(input && input.week);
+  const className = String(input && input.className ? input.className : "").trim();
+  const studentName = String(input && input.studentName ? input.studentName : "").trim();
+  const content = String(input && input.content ? input.content : "").trim();
+  const machineStatus = String(input && input.machineStatus ? input.machineStatus : MACHINE_OPTIONS[0]).trim();
+  const teacher = String(input && input.teacher ? input.teacher : "").trim();
+  const createdAt = String(input && input.createdAt ? input.createdAt : now).trim();
+  const updatedAt = String(input && input.updatedAt ? input.updatedAt : createdAt).trim();
+  return {
+    id: String(input && input.id ? input.id : generateRecordId(index)).trim(),
+    semester: semester || DEFAULT_SEMESTER,
+    week: Number.isNaN(week) || week < 1 || week > 30 ? 1 : week,
+    className: className || DEFAULT_CLASS_OPTIONS[0],
+    studentName: studentName,
+    content: content || DEFAULT_CONTENTS[0],
+    machineStatus: MACHINE_OPTIONS.indexOf(machineStatus) === -1 ? MACHINE_OPTIONS[0] : machineStatus,
+    teacher: teacher || DEFAULT_TEACHERS[0],
+    createdAt: createdAt || now,
+    updatedAt: updatedAt || createdAt || now,
+  };
+}
+
 function getDefaultDB() {
   return {
     metadata: {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      version: 1,
+      version: 2,
     },
     semesters: [DEFAULT_SEMESTER],
+    classOptions: DEFAULT_CLASS_OPTIONS.slice(),
     teachers: DEFAULT_TEACHERS.slice(),
     contentsBySemester: {
       [DEFAULT_SEMESTER]: DEFAULT_CONTENTS.slice(),
@@ -93,33 +190,79 @@ function getDefaultDB() {
 }
 
 function normalizeDB(raw) {
-  const db = raw && typeof raw === "object" ? raw : {};
-  const semesters = Array.isArray(db.semesters) ? db.semesters : [DEFAULT_SEMESTER];
-  const teachers = Array.isArray(db.teachers) ? db.teachers : DEFAULT_TEACHERS.slice();
-  const contentsBySemester =
-    db.contentsBySemester && typeof db.contentsBySemester === "object"
-      ? db.contentsBySemester
+  const source = raw && typeof raw === "object" ? raw : {};
+  const semesters = uniqueTrimmedList(source.semesters);
+  const classOptions = uniqueTrimmedList(source.classOptions || DEFAULT_CLASS_OPTIONS);
+  const teachers = uniqueTrimmedList(source.teachers || DEFAULT_TEACHERS);
+  const rawContents =
+    source.contentsBySemester && typeof source.contentsBySemester === "object"
+      ? source.contentsBySemester
       : {};
-  const records = Array.isArray(db.records) ? db.records : [];
+  const recordsInput = Array.isArray(source.records) ? source.records : [];
+  const contentsBySemester = {};
 
-  if (!contentsBySemester[DEFAULT_SEMESTER]) {
+  const contentKeys = Object.keys(rawContents);
+  for (let i = 0; i < contentKeys.length; i += 1) {
+    const key = String(contentKeys[i] || "").trim();
+    if (!key) {
+      continue;
+    }
+    contentsBySemester[key] = uniqueTrimmedList(rawContents[key]);
+  }
+
+  if (semesters.indexOf(DEFAULT_SEMESTER) === -1) {
+    semesters.unshift(DEFAULT_SEMESTER);
+  }
+  if (!contentsBySemester[DEFAULT_SEMESTER] || !contentsBySemester[DEFAULT_SEMESTER].length) {
     contentsBySemester[DEFAULT_SEMESTER] = DEFAULT_CONTENTS.slice();
   }
 
+  const recordList = [];
+  for (let j = 0; j < recordsInput.length; j += 1) {
+    const item = normalizeStoredRecord(recordsInput[j], j);
+    recordList.push(item);
+    if (semesters.indexOf(item.semester) === -1) {
+      semesters.push(item.semester);
+    }
+    if (classOptions.indexOf(item.className) === -1) {
+      classOptions.push(item.className);
+    }
+    if (teachers.indexOf(item.teacher) === -1) {
+      teachers.push(item.teacher);
+    }
+    if (!contentsBySemester[item.semester]) {
+      contentsBySemester[item.semester] = [];
+    }
+    if (contentsBySemester[item.semester].indexOf(item.content) === -1) {
+      contentsBySemester[item.semester].push(item.content);
+    }
+  }
+
+  const createdAt =
+    source.metadata && source.metadata.createdAt
+      ? String(source.metadata.createdAt)
+      : new Date().toISOString();
+
   return {
     metadata: {
-      createdAt:
-        db.metadata && db.metadata.createdAt
-          ? String(db.metadata.createdAt)
-          : new Date().toISOString(),
+      createdAt: createdAt,
       updatedAt: new Date().toISOString(),
-      version: 1,
+      version: 2,
     },
-    semesters: uniqueTrimmedList(semesters.concat(Object.keys(contentsBySemester))),
+    semesters: uniqueTrimmedList(semesters),
+    classOptions: uniqueTrimmedList(classOptions),
     teachers: uniqueTrimmedList(teachers),
     contentsBySemester: contentsBySemester,
-    records: records,
+    records: recordList,
   };
+}
+
+function writeDB(payload) {
+  ensureDir(DATA_DIR);
+  const text = JSON.stringify(payload, null, 2);
+  const tempPath = DB_PATH + ".tmp";
+  fs.writeFileSync(tempPath, text, "utf8");
+  fs.renameSync(tempPath, DB_PATH);
 }
 
 function loadDB() {
@@ -129,7 +272,6 @@ function loadDB() {
     writeDB(initial);
     return initial;
   }
-
   const raw = fs.readFileSync(DB_PATH, "utf8");
   let parsed;
   try {
@@ -142,15 +284,12 @@ function loadDB() {
   return normalized;
 }
 
-function writeDB(db) {
-  ensureDir(DATA_DIR);
-  const payload = JSON.stringify(db, null, 2);
-  const tempPath = DB_PATH + ".tmp";
-  fs.writeFileSync(tempPath, payload, "utf8");
-  fs.renameSync(tempPath, DB_PATH);
-}
-
 const db = loadDB();
+
+function saveDB() {
+  db.metadata.updatedAt = new Date().toISOString();
+  writeDB(db);
+}
 
 function sendJSON(res, statusCode, data) {
   const payload = JSON.stringify(data);
@@ -165,8 +304,23 @@ function sendJSON(res, statusCode, data) {
 function sendText(res, statusCode, text) {
   res.writeHead(statusCode, {
     "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
   });
   res.end(text);
+}
+
+function sendBuffer(res, statusCode, data, headers) {
+  const extraHeaders = headers || {};
+  const merged = {
+    "Content-Length": data.length,
+    "Cache-Control": "no-store",
+  };
+  const keys = Object.keys(extraHeaders);
+  for (let i = 0; i < keys.length; i += 1) {
+    merged[keys[i]] = extraHeaders[keys[i]];
+  }
+  res.writeHead(statusCode, merged);
+  res.end(data);
 }
 
 function getMimeType(filePath) {
@@ -181,15 +335,19 @@ function getMimeType(filePath) {
   return "application/octet-stream";
 }
 
-function serveStatic(req, res, pathname) {
-  let filePath = pathname === "/" ? "index.html" : String(pathname || "").replace(/^\/+/, "");
+function serveStatic(res, pathname) {
+  const routeMap = {
+    "/": "index.html",
+    "/admin": "admin.html",
+  };
+  let filePath = routeMap[pathname] || String(pathname || "").replace(/^\/+/, "");
   filePath = path.normalize(filePath);
   if (!filePath || filePath === "." || filePath.indexOf("..") === 0 || path.isAbsolute(filePath)) {
     sendText(res, 403, "Forbidden");
     return;
   }
-  const absolutePath = path.join(PUBLIC_DIR, filePath);
 
+  const absolutePath = path.join(PUBLIC_DIR, filePath);
   fs.readFile(absolutePath, function onRead(error, content) {
     if (error) {
       sendText(res, 404, "Not Found");
@@ -234,25 +392,92 @@ function readBody(req) {
 }
 
 function sanitizeRecord(payload) {
-  const record = {
-    semester: String(payload.semester || "").trim(),
-    week: Number(payload.week),
-    className: String(payload.className || "").trim(),
-    studentName: String(payload.studentName || "").trim(),
-    content: String(payload.content || "").trim(),
-    machineStatus: String(payload.machineStatus || "").trim(),
-    teacher: String(payload.teacher || "").trim(),
-  };
+  const semester = String(payload.semester || "").trim();
+  const week = Number(payload.week);
+  const className = String(payload.className || "").trim();
+  const studentName = String(payload.studentName || "").trim();
+  const content = String(payload.content || "").trim();
+  const machineStatus = String(payload.machineStatus || "").trim();
+  const teacher = String(payload.teacher || "").trim();
 
-  if (!record.semester) return "学期不能为空";
-  if (record.week < 1 || record.week > 30 || Number.isNaN(record.week)) return "周次必须在1-30";
-  if (CLASS_OPTIONS.indexOf(record.className) === -1) return "班级不在可选范围";
-  if (!record.studentName) return "学生姓名不能为空";
-  if (record.studentName.length > 30) return "学生姓名过长";
-  if (!record.content) return "学习内容不能为空";
-  if (MACHINE_OPTIONS.indexOf(record.machineStatus) === -1) return "机器情况不在可选范围";
-  if (!record.teacher) return "授课教师不能为空";
-  return record;
+  if (!semester) return "学期不能为空";
+  if (Number.isNaN(week) || week < 1 || week > 30) return "周次必须在 1-30";
+  if (!className || db.classOptions.indexOf(className) === -1) return "班级不在可选范围";
+  if (!studentName) return "学生姓名不能为空";
+  if (studentName.length > 30) return "学生姓名不能超过 30 个字符";
+  if (!content) return "学习内容不能为空";
+  if (MACHINE_OPTIONS.indexOf(machineStatus) === -1) return "机器情况不在可选范围";
+  if (!teacher) return "授课教师不能为空";
+
+  return {
+    semester: semester,
+    week: week,
+    className: className,
+    studentName: studentName,
+    content: content,
+    machineStatus: machineStatus,
+    teacher: teacher,
+  };
+}
+
+function applyRecordSideEffects(record) {
+  ensureSemester(record.semester);
+  ensureClass(record.className);
+  ensureTeacher(record.teacher);
+  ensureContent(record.semester, record.content);
+}
+
+function toRecordView(item) {
+  return {
+    id: item.id,
+    semester: item.semester,
+    week: item.week,
+    className: item.className,
+    studentName: item.studentName,
+    content: item.content,
+    machineStatus: item.machineStatus,
+    teacher: item.teacher,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    dateOnly: String(item.createdAt || "").slice(0, 10),
+  };
+}
+
+function sortRecordsByCreatedDesc(records) {
+  records.sort(function sortByTime(a, b) {
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+function filterRecords(query) {
+  const semester = String(query.semester || "").trim();
+  const week = String(query.week || "").trim();
+  const className = String(query.className || "").trim();
+  const studentName = String(query.studentName || "").trim();
+  const teacher = String(query.teacher || "").trim();
+  const machineStatus = String(query.machineStatus || "").trim();
+  const startDate = normalizeDateString(query.startDate);
+  const endDate = normalizeDateString(query.endDate);
+
+  return db.records.filter(function match(item) {
+    if (semester && item.semester !== semester) return false;
+    if (week && String(item.week) !== week) return false;
+    if (className && item.className !== className) return false;
+    if (studentName && item.studentName.indexOf(studentName) === -1) return false;
+    if (teacher && item.teacher.indexOf(teacher) === -1) return false;
+    if (machineStatus && item.machineStatus !== machineStatus) return false;
+    const dateOnly = String(item.createdAt || "").slice(0, 10);
+    if (startDate && dateOnly < startDate) return false;
+    if (endDate && dateOnly > endDate) return false;
+    return true;
+  });
+}
+
+function listRecords(query, maxCount) {
+  const limited = typeof maxCount === "number" ? maxCount : 300;
+  const filtered = filterRecords(query || {}).map(toRecordView);
+  sortRecordsByCreatedDesc(filtered);
+  return filtered.slice(0, limited);
 }
 
 function parseCsvLine(line) {
@@ -292,7 +517,10 @@ function parseRecordsFromCSV(csvText) {
       return line.trim();
     })
     .filter(Boolean);
-  if (!lines.length) return [];
+
+  if (!lines.length) {
+    return [];
+  }
 
   const headers = parseCsvLine(lines[0]);
   const indexMap = {
@@ -307,8 +535,9 @@ function parseRecordsFromCSV(csvText) {
 
   const requiredKeys = Object.keys(indexMap);
   for (let i = 0; i < requiredKeys.length; i += 1) {
-    if (indexMap[requiredKeys[i]] === -1) {
-      throw new Error("CSV表头缺少字段: " + requiredKeys[i]);
+    const key = requiredKeys[i];
+    if (indexMap[key] === -1) {
+      throw new Error("CSV 表头缺少字段：" + key);
     }
   }
 
@@ -328,58 +557,22 @@ function parseRecordsFromCSV(csvText) {
   return records;
 }
 
-function buildConfig() {
-  const weekOptions = [];
-  for (let i = 1; i <= 30; i += 1) {
-    weekOptions.push(i);
+function importRecords(recordsInput, mode) {
+  const imported = Array.isArray(recordsInput) ? recordsInput : [];
+  if (mode === "replace") {
+    db.records = [];
   }
 
-  return {
-    semesterOptions: db.semesters,
-    weekOptions: weekOptions,
-    classOptions: CLASS_OPTIONS,
-    machineOptions: MACHINE_OPTIONS,
-    teacherOptions: db.teachers,
-    contentsBySemester: db.contentsBySemester,
-  };
-}
-
-function saveDB() {
-  db.metadata.updatedAt = new Date().toISOString();
-  writeDB(db);
-}
-
-function listRecords(query) {
-  const semester = String(query.semester || "").trim();
-  const week = String(query.week || "").trim();
-  const className = String(query.className || "").trim();
-  const studentName = String(query.studentName || "").trim();
-
-  const filtered = db.records.filter(function filterRecord(item) {
-    if (semester && item.semester !== semester) return false;
-    if (week && String(item.week) !== week) return false;
-    if (className && item.className !== className) return false;
-    if (studentName && item.studentName.indexOf(studentName) === -1) return false;
-    return true;
-  });
-
-  filtered.sort(function sortByDate(a, b) {
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-  return filtered.slice(0, 300);
-}
-
-function normalizeAndInsertRecords(recordsInput) {
-  const imported = Array.isArray(recordsInput) ? recordsInput : [];
-  const inserted = [];
+  let insertedCount = 0;
   for (let i = 0; i < imported.length; i += 1) {
     const sanitized = sanitizeRecord(imported[i]);
     if (typeof sanitized === "string") {
       continue;
     }
+    applyRecordSideEffects(sanitized);
     const now = new Date().toISOString();
-    const record = {
-      id: "rec_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 10000),
+    db.records.push({
+      id: generateRecordId(i),
       semester: sanitized.semester,
       week: sanitized.week,
       className: sanitized.className,
@@ -389,52 +582,90 @@ function normalizeAndInsertRecords(recordsInput) {
       teacher: sanitized.teacher,
       createdAt: now,
       updatedAt: now,
-    };
-    addSemesterIfMissing(sanitized.semester);
-    if (db.teachers.indexOf(sanitized.teacher) === -1) {
-      db.teachers.push(sanitized.teacher);
-    }
-    if (!db.contentsBySemester[sanitized.semester]) {
-      db.contentsBySemester[sanitized.semester] = [];
-    }
-    if (db.contentsBySemester[sanitized.semester].indexOf(sanitized.content) === -1) {
-      db.contentsBySemester[sanitized.semester].push(sanitized.content);
-    }
-    inserted.push(record);
+    });
+    insertedCount += 1;
   }
-
-  db.records = db.records.concat(inserted);
-  return inserted.length;
+  return insertedCount;
 }
 
-function addSemesterIfMissing(semester) {
-  if (db.semesters.indexOf(semester) === -1) {
-    db.semesters.push(semester);
+function buildConfig() {
+  return {
+    semesterOptions: db.semesters,
+    weekOptions: buildWeekOptions(),
+    classOptions: db.classOptions,
+    machineOptions: MACHINE_OPTIONS,
+    teacherOptions: db.teachers,
+    contentsBySemester: db.contentsBySemester,
+  };
+}
+
+function buildAdminConfig() {
+  return {
+    semesterOptions: db.semesters,
+    weekOptions: buildWeekOptions(),
+    classOptions: db.classOptions,
+    machineOptions: MACHINE_OPTIONS,
+    teacherOptions: db.teachers,
+    contentsBySemester: db.contentsBySemester,
+    summary: {
+      recordCount: db.records.length,
+      semesterCount: db.semesters.length,
+      classCount: db.classOptions.length,
+      teacherCount: db.teachers.length,
+    },
+  };
+}
+
+function toCsvCell(value) {
+  const text = String(value == null ? "" : value);
+  if (/[,"\n]/.test(text)) {
+    return '"' + text.replace(/"/g, '""') + '"';
   }
+  return text;
+}
+
+function encodeRecordsToCsv(records) {
+  const headers = ["学期", "周次", "班级", "学生姓名", "学习内容", "机器情况", "授课教师", "签到时间"];
+  const lines = [headers.join(",")];
+  for (let i = 0; i < records.length; i += 1) {
+    const row = records[i];
+    lines.push(
+      [
+        row.semester,
+        row.week,
+        row.className,
+        row.studentName,
+        row.content,
+        row.machineStatus,
+        row.teacher,
+        row.createdAt,
+      ]
+        .map(toCsvCell)
+        .join(",")
+    );
+  }
+  const csvText = "\ufeff" + lines.join("\n");
+  return Buffer.from(csvText, "utf8");
+}
+
+function getLastPathSegment(pathname) {
+  const parts = String(pathname || "")
+    .split("/")
+    .filter(Boolean);
+  if (!parts.length) {
+    return "";
+  }
+  return decodeURIComponent(parts[parts.length - 1]);
 }
 
 async function handleAPI(req, res, pathname, query) {
   if (req.method === "GET" && pathname === "/api/config") {
-    sendJSON(res, 200, {
-      ok: true,
-      data: buildConfig(),
-    });
+    sendJSON(res, 200, { ok: true, data: buildConfig() });
     return;
   }
 
   if (req.method === "GET" && pathname === "/api/records") {
-    sendJSON(res, 200, {
-      ok: true,
-      data: listRecords(query),
-    });
-    return;
-  }
-
-  if (req.method === "GET" && pathname === "/api/export") {
-    sendJSON(res, 200, {
-      ok: true,
-      data: db,
-    });
+    sendJSON(res, 200, { ok: true, data: listRecords(query, 300) });
     return;
   }
 
@@ -445,19 +676,10 @@ async function handleAPI(req, res, pathname, query) {
       sendJSON(res, 400, { ok: false, message: sanitized });
       return;
     }
-    addSemesterIfMissing(sanitized.semester);
-    if (!db.contentsBySemester[sanitized.semester]) {
-      db.contentsBySemester[sanitized.semester] = [sanitized.content];
-    }
-    if (db.contentsBySemester[sanitized.semester].indexOf(sanitized.content) === -1) {
-      db.contentsBySemester[sanitized.semester].push(sanitized.content);
-    }
-    if (db.teachers.indexOf(sanitized.teacher) === -1) {
-      db.teachers.push(sanitized.teacher);
-    }
+    applyRecordSideEffects(sanitized);
     const now = new Date().toISOString();
     db.records.push({
-      id: "rec_" + Date.now() + "_" + Math.floor(Math.random() * 100000),
+      id: generateRecordId(0),
       semester: sanitized.semester,
       week: sanitized.week,
       className: sanitized.className,
@@ -482,7 +704,11 @@ async function handleAPI(req, res, pathname, query) {
     }
     db.teachers = names;
     saveDB();
-    sendJSON(res, 200, { ok: true, message: "教师名单导入成功", count: names.length });
+    sendJSON(res, 200, {
+      ok: true,
+      message: "教师名单导入成功",
+      count: names.length,
+    });
     return;
   }
 
@@ -498,7 +724,7 @@ async function handleAPI(req, res, pathname, query) {
       sendJSON(res, 400, { ok: false, message: "学习内容不能为空" });
       return;
     }
-    addSemesterIfMissing(semester);
+    ensureSemester(semester);
     db.contentsBySemester[semester] = contents;
     saveDB();
     sendJSON(res, 200, {
@@ -522,11 +748,7 @@ async function handleAPI(req, res, pathname, query) {
       sendJSON(res, 400, { ok: false, message: "请提供 records 数组或 csvText" });
       return;
     }
-
-    if (mode === "replace") {
-      db.records = [];
-    }
-    const insertedCount = normalizeAndInsertRecords(records);
+    const insertedCount = importRecords(records, mode);
     saveDB();
     sendJSON(res, 200, {
       ok: true,
@@ -537,21 +759,152 @@ async function handleAPI(req, res, pathname, query) {
     return;
   }
 
+  if (req.method === "GET" && pathname === "/api/export") {
+    sendJSON(res, 200, { ok: true, data: db });
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/admin/config") {
+    sendJSON(res, 200, { ok: true, data: buildAdminConfig() });
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/admin/records") {
+    sendJSON(res, 200, { ok: true, data: listRecords(query, 1000) });
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/admin/export/records.csv") {
+    const records = listRecords(query, 10000);
+    const csvBuffer = encodeRecordsToCsv(records);
+    sendBuffer(res, 200, csvBuffer, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition":
+        'attachment; filename="sign_in_records_' +
+        new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") +
+        '.csv"',
+    });
+    return;
+  }
+
+  if (req.method === "DELETE" && pathname.indexOf("/api/admin/records/") === 0) {
+    const recordId = getLastPathSegment(pathname);
+    const before = db.records.length;
+    db.records = db.records.filter(function keep(item) {
+      return item.id !== recordId;
+    });
+    if (db.records.length === before) {
+      sendJSON(res, 404, { ok: false, message: "未找到记录" });
+      return;
+    }
+    saveDB();
+    sendJSON(res, 200, { ok: true, message: "记录已删除" });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/semesters") {
+    const payload = await readBody(req);
+    const semester = String(payload.name || "").trim();
+    if (!semester) {
+      sendJSON(res, 400, { ok: false, message: "学期名称不能为空" });
+      return;
+    }
+    if (db.semesters.indexOf(semester) !== -1) {
+      sendJSON(res, 400, { ok: false, message: "学期已存在" });
+      return;
+    }
+    db.semesters.push(semester);
+    db.contentsBySemester[semester] = db.contentsBySemester[semester] || [];
+    saveDB();
+    sendJSON(res, 200, { ok: true, message: "学期已新增" });
+    return;
+  }
+
+  if (req.method === "DELETE" && pathname === "/api/admin/semesters") {
+    const payload = await readBody(req);
+    const semester = String(payload.name || "").trim();
+    if (!semester) {
+      sendJSON(res, 400, { ok: false, message: "学期名称不能为空" });
+      return;
+    }
+    if (semester === DEFAULT_SEMESTER) {
+      sendJSON(res, 400, { ok: false, message: "默认学期不能删除" });
+      return;
+    }
+    const before = db.semesters.length;
+    db.semesters = db.semesters.filter(function keep(item) {
+      return item !== semester;
+    });
+    if (db.semesters.length === before) {
+      sendJSON(res, 404, { ok: false, message: "学期不存在" });
+      return;
+    }
+    delete db.contentsBySemester[semester];
+    saveDB();
+    sendJSON(res, 200, { ok: true, message: "学期已删除" });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/classes") {
+    const payload = await readBody(req);
+    const className = String(payload.name || "").trim();
+    if (!className) {
+      sendJSON(res, 400, { ok: false, message: "班级名称不能为空" });
+      return;
+    }
+    if (db.classOptions.indexOf(className) !== -1) {
+      sendJSON(res, 400, { ok: false, message: "班级已存在" });
+      return;
+    }
+    db.classOptions.push(className);
+    saveDB();
+    sendJSON(res, 200, { ok: true, message: "班级已新增" });
+    return;
+  }
+
+  if (req.method === "DELETE" && pathname === "/api/admin/classes") {
+    const payload = await readBody(req);
+    const className = String(payload.name || "").trim();
+    if (!className) {
+      sendJSON(res, 400, { ok: false, message: "班级名称不能为空" });
+      return;
+    }
+    if (db.classOptions.length <= 1) {
+      sendJSON(res, 400, { ok: false, message: "至少保留一个班级" });
+      return;
+    }
+    const before = db.classOptions.length;
+    db.classOptions = db.classOptions.filter(function keep(item) {
+      return item !== className;
+    });
+    if (db.classOptions.length === before) {
+      sendJSON(res, 404, { ok: false, message: "班级不存在" });
+      return;
+    }
+    saveDB();
+    sendJSON(res, 200, { ok: true, message: "班级已删除" });
+    return;
+  }
+
   sendJSON(res, 404, { ok: false, message: "接口不存在" });
 }
 
 function getLocalIPv4List() {
-  const networkInterfaces = os.networkInterfaces();
+  const interfaces = os.networkInterfaces();
   const ips = [];
-  Object.keys(networkInterfaces).forEach(function eachInterface(name) {
-    const infos = networkInterfaces[name];
-    if (!Array.isArray(infos)) return;
-    infos.forEach(function eachInfo(info) {
+  const names = Object.keys(interfaces);
+  for (let i = 0; i < names.length; i += 1) {
+    const details = interfaces[names[i]];
+    if (!Array.isArray(details)) {
+      continue;
+    }
+    for (let j = 0; j < details.length; j += 1) {
+      const info = details[j];
       if (info && info.family === "IPv4" && !info.internal) {
         ips.push(info.address);
       }
-    });
-  });
+    }
+  }
   return ips;
 }
 
@@ -563,7 +916,7 @@ const server = http.createServer(async function onRequest(req, res) {
       await handleAPI(req, res, pathname, parsed.query || {});
       return;
     }
-    serveStatic(req, res, pathname);
+    serveStatic(res, pathname);
   } catch (error) {
     sendJSON(res, 500, {
       ok: false,
@@ -575,8 +928,9 @@ const server = http.createServer(async function onRequest(req, res) {
 server.listen(PORT, HOST, function onReady() {
   const ips = getLocalIPv4List();
   console.log("======================================");
-  console.log("马桥镇陈庄小学计算机教室学生签到系统 已启动");
-  console.log("本机访问: http://127.0.0.1:" + PORT);
+  console.log("计算机教室签到与后台管理系统 已启动");
+  console.log("学生签到页面: http://127.0.0.1:" + PORT);
+  console.log("后台管理页面: http://127.0.0.1:" + PORT + "/admin");
   for (let i = 0; i < ips.length; i += 1) {
     console.log("局域网访问: http://" + ips[i] + ":" + PORT);
   }

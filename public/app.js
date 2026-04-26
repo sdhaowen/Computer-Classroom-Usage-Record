@@ -25,15 +25,6 @@ function fillSelect(select, items, includeEmpty) {
   }
 }
 
-function readLines(text) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map(function trim(v) {
-      return v.trim();
-    })
-    .filter(Boolean);
-}
-
 function setMessage(target, text, isError) {
   target.textContent = text || "";
   target.style.color = isError ? "#b91c1c" : "#166534";
@@ -51,6 +42,14 @@ async function requestJSON(url, options) {
 const state = {
   config: null,
 };
+
+function getFriendlyWeekText(value) {
+  const week = Number(value);
+  if (Number.isNaN(week)) {
+    return String(value);
+  }
+  return "第 " + week + " 周";
+}
 
 function refreshContentOptions() {
   const semester = byId("semester").value;
@@ -82,7 +81,7 @@ function renderRecords(records) {
     const tr = document.createElement("tr");
     [
       item.semester,
-      item.week,
+      getFriendlyWeekText(item.week),
       item.className,
       item.studentName,
       item.content,
@@ -108,6 +107,21 @@ async function loadConfig() {
   fillSelect(byId("teacher"), state.config.teacherOptions, false);
   refreshContentOptions();
   refreshQueryOptions();
+
+  const weekSelect = byId("week");
+  const options = weekSelect.options;
+  for (let i = 0; i < options.length; i += 1) {
+    const item = options[i];
+    item.textContent = getFriendlyWeekText(item.value);
+  }
+  const queryWeekSelect = byId("qWeek");
+  const queryOptions = queryWeekSelect.options;
+  for (let j = 0; j < queryOptions.length; j += 1) {
+    const option = queryOptions[j];
+    if (option.value) {
+      option.textContent = getFriendlyWeekText(option.value);
+    }
+  }
 }
 
 async function queryRecords() {
@@ -148,69 +162,6 @@ async function handleSignSubmit(event) {
   }
 }
 
-async function handleImportTeachers() {
-  const messageEl = byId("importMessage");
-  setMessage(messageEl, "正在导入教师...", false);
-  try {
-    const names = readLines(byId("teacherImport").value);
-    const result = await requestJSON("/api/import/teachers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ names: names }),
-    });
-    setMessage(messageEl, "教师导入成功，共 " + result.count + " 位", false);
-    await loadConfig();
-  } catch (error) {
-    setMessage(messageEl, error.message, true);
-  }
-}
-
-async function handleImportContents() {
-  const messageEl = byId("importMessage");
-  setMessage(messageEl, "正在导入教学内容...", false);
-  try {
-    const semester = byId("contentSemester").value.trim();
-    const contents = readLines(byId("contentImport").value);
-    const result = await requestJSON("/api/import/contents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ semester: semester, contents: contents }),
-    });
-    setMessage(
-      messageEl,
-      result.semester + " 导入成功，共 " + result.count + " 条教学内容",
-      false
-    );
-    await loadConfig();
-    byId("semester").value = semester;
-    refreshContentOptions();
-  } catch (error) {
-    setMessage(messageEl, error.message, true);
-  }
-}
-
-async function handleImportRecords() {
-  const messageEl = byId("importMessage");
-  setMessage(messageEl, "正在导入签到记录...", false);
-  try {
-    const csvText = byId("recordsCsv").value;
-    const mode = byId("importMode").value;
-    const result = await requestJSON("/api/import/records", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ csvText: csvText, mode: mode }),
-    });
-    setMessage(
-      messageEl,
-      "记录导入完成，成功导入 " + result.insertedCount + " 条（模式：" + (mode === "replace" ? "覆盖" : "追加") + "）",
-      false
-    );
-    await queryRecords();
-  } catch (error) {
-    setMessage(messageEl, error.message, true);
-  }
-}
-
 async function bootstrap() {
   try {
     await loadConfig();
@@ -224,17 +175,13 @@ async function bootstrap() {
   byId("queryForm").addEventListener("submit", function onQuery(event) {
     event.preventDefault();
     queryRecords().catch(function handleErr(error) {
-      setMessage(byId("importMessage"), error.message, true);
+      setMessage(byId("signMessage"), error.message, true);
     });
   });
-  byId("importTeachersBtn").addEventListener("click", function onClick() {
-    handleImportTeachers();
-  });
-  byId("importContentsBtn").addEventListener("click", function onClick() {
-    handleImportContents();
-  });
-  byId("importRecordsBtn").addEventListener("click", function onClick() {
-    handleImportRecords();
+  byId("refreshRecordsBtn").addEventListener("click", function onClick() {
+    queryRecords().catch(function handleErr(error) {
+      setMessage(byId("signMessage"), error.message, true);
+    });
   });
 }
 
