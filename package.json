@@ -1,0 +1,10 @@
+{
+  "name": "computer-classroom-usage-record",
+  "version": "1.0.0",
+  "private": true,
+  "description": "马桥镇陈庄小学计算机教室学生签到程序",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
