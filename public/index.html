@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>马桥镇陈庄小学计算机教室学生签到</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <h1>马桥镇陈庄小学计算机教室学生签到</h1>
+        <p>局域网可访问 · 自动保存数据 · 支持导入</p>
+      </header>
+
+      <main class="grid">
+        <section class="card">
+          <h2>学生签到</h2>
+          <form id="signForm" class="form-grid">
+            <label>
+              学期
+              <select id="semester" required></select>
+            </label>
+            <label>
+              周次
+              <select id="week" required></select>
+            </label>
+            <label>
+              班级
+              <select id="className" required></select>
+            </label>
+            <label>
+              学生姓名
+              <input id="studentName" type="text" maxlength="30" required placeholder="请输入姓名" />
+            </label>
+            <label>
+              学习内容
+              <select id="content" required></select>
+            </label>
+            <label>
+              机器情况
+              <select id="machineStatus" required></select>
+            </label>
+            <label>
+              授课教师
+              <select id="teacher" required></select>
+            </label>
+            <button type="submit" class="btn primary">提交签到</button>
+          </form>
+          <p id="signMessage" class="message"></p>
+        </section>
+
+        <section class="card">
+          <h2>记录查询</h2>
+          <form id="queryForm" class="query-grid">
+            <label>
+              学期
+              <select id="qSemester">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              周次
+              <select id="qWeek">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              班级
+              <select id="qClassName">
+                <option value="">全部</option>
+              </select>
+            </label>
+            <label>
+              学生姓名
+              <input id="qStudentName" type="text" placeholder="模糊搜索" />
+            </label>
+            <button type="submit" class="btn">查询</button>
+          </form>
+          <div class="table-wrap">
+            <table id="recordsTable">
+              <thead>
+                <tr>
+                  <th>学期</th>
+                  <th>周次</th>
+                  <th>班级</th>
+                  <th>学生姓名</th>
+                  <th>学习内容</th>
+                  <th>机器情况</th>
+                  <th>授课教师</th>
+                  <th>时间</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>数据导入</h2>
+          <div class="import-block">
+            <h3>导入教师姓名（每行一个）</h3>
+            <textarea id="teacherImport" rows="5" placeholder="王老师&#10;李老师"></textarea>
+            <button id="importTeachersBtn" class="btn">导入教师</button>
+          </div>
+
+          <div class="import-block">
+            <h3>导入一学期教学内容（每行一个）</h3>
+            <label>
+              目标学期
+              <input id="contentSemester" type="text" placeholder="例如：2025-2026第一学期" />
+            </label>
+            <textarea id="contentImport" rows="8" placeholder="第1周：机房规则与计算机基础认知"></textarea>
+            <button id="importContentsBtn" class="btn">导入教学内容</button>
+          </div>
+
+          <div class="import-block">
+            <h3>导入签到记录（CSV）</h3>
+            <p class="tips">
+              CSV表头必须为：学期,周次,班级,学生姓名,学习内容,机器情况,授课教师
+            </p>
+            <textarea
+              id="recordsCsv"
+              rows="7"
+              placeholder="学期,周次,班级,学生姓名,学习内容,机器情况,授课教师"
+            ></textarea>
+            <div class="inline-actions">
+              <label>
+                导入模式
+                <select id="importMode">
+                  <option value="append">追加</option>
+                  <option value="replace">覆盖</option>
+                </select>
+              </label>
+              <button id="importRecordsBtn" class="btn">导入记录</button>
+            </div>
+          </div>
+
+          <p id="importMessage" class="message"></p>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
