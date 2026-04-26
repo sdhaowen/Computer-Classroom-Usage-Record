@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const url = require("url");
+const crypto = require("crypto");
 
 const HOST = "0.0.0.0";
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -12,6 +13,10 @@ const DB_PATH = path.join(DATA_DIR, "db.json");
 
 const MACHINE_OPTIONS = ["正常", "不正常"];
 const DEFAULT_SEMESTER = "2025-2026第一学期";
+const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || "admin").trim();
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "admin123").trim();
+const ADMIN_SESSION_COOKIE = "admin_session";
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const DEFAULT_CLASS_OPTIONS = [
   "三年级一班",
   "三年级二班",
@@ -113,6 +118,7 @@ const DEFAULT_CONTENTS = [
   "5-8-2《智能工具再体验》",
   "5-8-3《生命游戏有规则》",
 ];
+const adminSessions = Object.create(null);
 
 function ensureDir(targetDir) {
   if (!fs.existsSync(targetDir)) {
@@ -352,35 +358,62 @@ function saveDB() {
   writeDB(db);
 }
 
-function sendJSON(res, statusCode, data) {
+function mergeHeaders(baseHeaders, extraHeaders) {
+  const merged = {};
+  const baseKeys = Object.keys(baseHeaders || {});
+  for (let i = 0; i < baseKeys.length; i += 1) {
+    const key = baseKeys[i];
+    merged[key] = baseHeaders[key];
+  }
+  const extraKeys = Object.keys(extraHeaders || {});
+  for (let j = 0; j < extraKeys.length; j += 1) {
+    const key = extraKeys[j];
+    merged[key] = extraHeaders[key];
+  }
+  return merged;
+}
+
+function sendJSON(res, statusCode, data, headers) {
   const payload = JSON.stringify(data);
-  res.writeHead(statusCode, {
+  res.writeHead(
+    statusCode,
+    mergeHeaders(
+      {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(payload),
     "Cache-Control": "no-store",
-  });
+      },
+      headers
+    )
+  );
   res.end(payload);
 }
 
-function sendText(res, statusCode, text) {
-  res.writeHead(statusCode, {
-    "Content-Type": "text/plain; charset=utf-8",
-    "Cache-Control": "no-store",
-  });
+function sendText(res, statusCode, text, headers) {
+  res.writeHead(
+    statusCode,
+    mergeHeaders(
+      {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+      headers
+    )
+  );
   res.end(text);
 }
 
 function sendBuffer(res, statusCode, data, headers) {
-  const extraHeaders = headers || {};
-  const merged = {
-    "Content-Length": data.length,
-    "Cache-Control": "no-store",
-  };
-  const keys = Object.keys(extraHeaders);
-  for (let i = 0; i < keys.length; i += 1) {
-    merged[keys[i]] = extraHeaders[keys[i]];
-  }
-  res.writeHead(statusCode, merged);
+  res.writeHead(
+    statusCode,
+    mergeHeaders(
+      {
+        "Content-Length": data.length,
+        "Cache-Control": "no-store",
+      },
+      headers
+    )
+  );
   res.end(data);
 }
 
@@ -396,10 +429,147 @@ function getMimeType(filePath) {
   return "application/octet-stream";
 }
 
-function serveStatic(res, pathname) {
+function sendRedirect(res, location) {
+  res.writeHead(302, {
+    Location: location,
+    "Cache-Control": "no-store",
+  });
+  res.end();
+}
+
+function parseCookies(req) {
+  const source = String((req && req.headers && req.headers.cookie) || "");
+  const result = Object.create(null);
+  if (!source) {
+    return result;
+  }
+  const parts = source.split(";");
+  for (let i = 0; i < parts.length; i += 1) {
+    const segment = parts[i].trim();
+    if (!segment) {
+      continue;
+    }
+    const separatorIndex = segment.indexOf("=");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const rawKey = segment.slice(0, separatorIndex).trim();
+    const rawValue = segment.slice(separatorIndex + 1).trim();
+    const key = decodeURIComponent(rawKey);
+    const value = decodeURIComponent(rawValue);
+    if (key) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function getSessionCookieToken(req) {
+  const cookies = parseCookies(req);
+  return String(cookies[ADMIN_SESSION_COOKIE] || "").trim();
+}
+
+function cleanExpiredAdminSessions() {
+  const now = Date.now();
+  const tokens = Object.keys(adminSessions);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    const session = adminSessions[token];
+    if (!session || session.expiresAt <= now) {
+      delete adminSessions[token];
+    }
+  }
+}
+
+function createAdminSessionToken() {
+  cleanExpiredAdminSessions();
+  const token = crypto.randomBytes(24).toString("hex");
+  adminSessions[token] = {
+    expiresAt: Date.now() + ADMIN_SESSION_TTL_MS,
+  };
+  return token;
+}
+
+function getValidAdminSessionToken(req) {
+  cleanExpiredAdminSessions();
+  const token = getSessionCookieToken(req);
+  if (!token) {
+    return "";
+  }
+  const session = adminSessions[token];
+  if (!session) {
+    return "";
+  }
+  if (session.expiresAt <= Date.now()) {
+    delete adminSessions[token];
+    return "";
+  }
+  session.expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  return token;
+}
+
+function buildSessionCookie(token, maxAgeMs) {
+  const maxAgeSeconds = Math.max(0, Math.floor(maxAgeMs / 1000));
+  const parts = [
+    ADMIN_SESSION_COOKIE + "=" + encodeURIComponent(token || ""),
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=" + maxAgeSeconds,
+  ];
+  return parts.join("; ");
+}
+
+function clearAdminSessionFromReq(req) {
+  const token = getSessionCookieToken(req);
+  if (token) {
+    delete adminSessions[token];
+  }
+}
+
+function isAdminProtectedAPI(pathname) {
+  if (pathname.indexOf("/api/admin/") === 0) {
+    if (
+      pathname === "/api/admin/login" ||
+      pathname === "/api/admin/logout" ||
+      pathname === "/api/admin/session"
+    ) {
+      return false;
+    }
+    return true;
+  }
+  if (pathname === "/api/import/teachers") return true;
+  if (pathname === "/api/import/contents") return true;
+  if (pathname === "/api/export") return true;
+  return false;
+}
+
+function serveStatic(req, res, pathname) {
+  const sessionToken = getValidAdminSessionToken(req);
+  const isLoggedIn = Boolean(sessionToken);
+  if (pathname === "/admin" || pathname === "/admin/" || pathname === "/admin.html") {
+    if (!isLoggedIn) {
+      sendRedirect(res, "/admin/login");
+      return;
+    }
+  }
+  if (
+    pathname === "/admin/login" ||
+    pathname === "/admin/login/" ||
+    pathname === "/admin-login.html"
+  ) {
+    if (isLoggedIn) {
+      sendRedirect(res, "/admin");
+      return;
+    }
+  }
+
   const routeMap = {
     "/": "index.html",
     "/admin": "admin.html",
+    "/admin/": "admin.html",
+    "/admin/login": "admin-login.html",
+    "/admin/login/": "admin-login.html",
   };
   let filePath = routeMap[pathname] || String(pathname || "").replace(/^\/+/, "");
   filePath = path.normalize(filePath);
@@ -612,6 +782,52 @@ function getLastPathSegment(pathname) {
 }
 
 async function handleAPI(req, res, pathname, query) {
+  if (req.method === "POST" && pathname === "/api/admin/login") {
+    const payload = await readBody(req);
+    const username = String(payload.username || "").trim();
+    const password = String(payload.password || "");
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      sendJSON(res, 401, { ok: false, message: "账号或密码错误" });
+      return;
+    }
+    const token = createAdminSessionToken();
+    sendJSON(
+      res,
+      200,
+      { ok: true, message: "登录成功" },
+      { "Set-Cookie": buildSessionCookie(token, ADMIN_SESSION_TTL_MS) }
+    );
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/logout") {
+    clearAdminSessionFromReq(req);
+    sendJSON(
+      res,
+      200,
+      { ok: true, message: "已退出登录" },
+      { "Set-Cookie": buildSessionCookie("", 0) }
+    );
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/admin/session") {
+    const token = getValidAdminSessionToken(req);
+    sendJSON(res, 200, {
+      ok: true,
+      data: {
+        loggedIn: Boolean(token),
+        username: Boolean(token) ? ADMIN_USERNAME : "",
+      },
+    });
+    return;
+  }
+
+  if (isAdminProtectedAPI(pathname) && !getValidAdminSessionToken(req)) {
+    sendJSON(res, 401, { ok: false, message: "请先登录后台管理" });
+    return;
+  }
+
   if (req.method === "GET" && pathname === "/api/config") {
     sendJSON(res, 200, { ok: true, data: buildConfig() });
     return;
@@ -846,7 +1062,7 @@ const server = http.createServer(async function onRequest(req, res) {
       await handleAPI(req, res, pathname, parsed.query || {});
       return;
     }
-    serveStatic(res, pathname);
+    serveStatic(req, res, pathname);
   } catch (error) {
     sendJSON(res, 500, {
       ok: false,

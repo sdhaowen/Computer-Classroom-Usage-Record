@@ -248,6 +248,57 @@ th {
   color: var(--muted);
 }
 
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-login-page {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(160deg, #eaf0ff 0%, #f6f8fc 55%, #edf3ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.admin-login-shell {
+  width: 100%;
+  max-width: 420px;
+}
+
+.admin-login-card {
+  background: #fff;
+  border: 1px solid #dfe7fb;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(31, 54, 108, 0.12);
+}
+
+.admin-login-card h1 {
+  margin: 0 0 8px;
+  color: #244ca8;
+}
+
+.admin-login-card p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 10px;
+}
+
+.login-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .admin-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
