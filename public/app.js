@@ -57,46 +57,6 @@ function refreshContentOptions() {
   fillSelect(byId("content"), list, false);
 }
 
-function refreshQueryOptions() {
-  const cfg = state.config;
-  fillSelect(byId("qSemester"), cfg.semesterOptions, true);
-  fillSelect(byId("qWeek"), cfg.weekOptions, true);
-  fillSelect(byId("qClassName"), cfg.classOptions, true);
-}
-
-function renderRecords(records) {
-  const tbody = byId("recordsTable").querySelector("tbody");
-  tbody.innerHTML = "";
-  if (!records.length) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = 8;
-    td.textContent = "暂无记录";
-    td.style.textAlign = "center";
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-    return;
-  }
-  records.forEach(function each(item) {
-    const tr = document.createElement("tr");
-    [
-      item.semester,
-      getFriendlyWeekText(item.week),
-      item.className,
-      item.studentName,
-      item.content,
-      item.machineStatus,
-      item.teacher,
-      item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
-    ].forEach(function eachCol(value) {
-      const td = document.createElement("td");
-      td.textContent = value == null ? "" : String(value);
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
-
 async function loadConfig() {
   const result = await requestJSON("/api/config");
   state.config = result.data;
@@ -106,7 +66,6 @@ async function loadConfig() {
   fillSelect(byId("machineStatus"), state.config.machineOptions, false);
   fillSelect(byId("teacher"), state.config.teacherOptions, false);
   refreshContentOptions();
-  refreshQueryOptions();
 
   const weekSelect = byId("week");
   const options = weekSelect.options;
@@ -114,25 +73,6 @@ async function loadConfig() {
     const item = options[i];
     item.textContent = getFriendlyWeekText(item.value);
   }
-  const queryWeekSelect = byId("qWeek");
-  const queryOptions = queryWeekSelect.options;
-  for (let j = 0; j < queryOptions.length; j += 1) {
-    const option = queryOptions[j];
-    if (option.value) {
-      option.textContent = getFriendlyWeekText(option.value);
-    }
-  }
-}
-
-async function queryRecords() {
-  const params = new URLSearchParams({
-    semester: byId("qSemester").value,
-    week: byId("qWeek").value,
-    className: byId("qClassName").value,
-    studentName: byId("qStudentName").value.trim(),
-  });
-  const result = await requestJSON("/api/records?" + params.toString());
-  renderRecords(result.data);
 }
 
 async function handleSignSubmit(event) {
@@ -156,7 +96,6 @@ async function handleSignSubmit(event) {
     setMessage(messageEl, "签到成功", false);
     byId("studentName").value = "";
     await loadConfig();
-    await queryRecords();
   } catch (error) {
     setMessage(messageEl, error.message, true);
   }
@@ -165,24 +104,12 @@ async function handleSignSubmit(event) {
 async function bootstrap() {
   try {
     await loadConfig();
-    await queryRecords();
   } catch (error) {
     setMessage(byId("signMessage"), "初始化失败：" + error.message, true);
   }
 
   byId("semester").addEventListener("change", refreshContentOptions);
   byId("signForm").addEventListener("submit", handleSignSubmit);
-  byId("queryForm").addEventListener("submit", function onQuery(event) {
-    event.preventDefault();
-    queryRecords().catch(function handleErr(error) {
-      setMessage(byId("signMessage"), error.message, true);
-    });
-  });
-  byId("refreshRecordsBtn").addEventListener("click", function onClick() {
-    queryRecords().catch(function handleErr(error) {
-      setMessage(byId("signMessage"), error.message, true);
-    });
-  });
 }
 
 bootstrap();

@@ -49,6 +49,14 @@ async function requestJSON(url, options) {
   return data;
 }
 
+function getFriendlyWeekText(value) {
+  const week = Number(value);
+  if (Number.isNaN(week)) {
+    return String(value);
+  }
+  return "第 " + week + " 周";
+}
+
 function queryFromAdminForm() {
   return {
     semester: byId("aSemester").value,
@@ -79,6 +87,21 @@ const state = {
   records: [],
 };
 
+function switchTab(tabName) {
+  const tabs = document.querySelectorAll(".admin-tab");
+  const panels = document.querySelectorAll(".admin-tab-panel");
+  for (let i = 0; i < tabs.length; i += 1) {
+    const tab = tabs[i];
+    const isActive = tab.dataset.tab === tabName;
+    tab.classList.toggle("is-active", isActive);
+  }
+  for (let j = 0; j < panels.length; j += 1) {
+    const panel = panels[j];
+    const isActive = panel.dataset.panel === tabName;
+    panel.classList.toggle("is-active", isActive);
+  }
+}
+
 function renderSummary(summary) {
   const container = byId("summaryCards");
   container.innerHTML = "";
@@ -98,6 +121,24 @@ function renderSummary(summary) {
     card.appendChild(title);
     card.appendChild(value);
     container.appendChild(card);
+  }
+}
+
+function renderSimpleList(target, values, emptyText) {
+  target.innerHTML = "";
+  if (!values.length) {
+    const empty = document.createElement("li");
+    empty.className = "item-empty";
+    empty.textContent = emptyText || "暂无数据";
+    target.appendChild(empty);
+    return;
+  }
+  for (let i = 0; i < values.length; i += 1) {
+    const item = document.createElement("li");
+    const text = document.createElement("span");
+    text.textContent = values[i];
+    item.appendChild(text);
+    target.appendChild(item);
   }
 }
 
@@ -128,6 +169,16 @@ function renderMetaList(target, values, deleteHandler) {
   }
 }
 
+function refreshContentList() {
+  if (!state.config) {
+    renderSimpleList(byId("contentList"), [], "暂无内容");
+    return;
+  }
+  const semester = byId("contentSemester").value;
+  const list = state.config.contentsBySemester[semester] || [];
+  renderSimpleList(byId("contentList"), list, "当前学期暂无内容");
+}
+
 function renderRecords(records) {
   const tbody = byId("adminRecordsTable").querySelector("tbody");
   tbody.innerHTML = "";
@@ -147,7 +198,7 @@ function renderRecords(records) {
     const tr = document.createElement("tr");
     const cells = [
       row.semester,
-      row.week,
+      getFriendlyWeekText(row.week),
       row.className,
       row.studentName,
       row.content,
@@ -181,9 +232,22 @@ async function loadAdminConfig() {
   fillSelect(byId("aWeek"), state.config.weekOptions, true);
   fillSelect(byId("aClassName"), state.config.classOptions, true);
   fillSelect(byId("aMachineStatus"), state.config.machineOptions, true);
+  fillSelect(byId("contentSemester"), state.config.semesterOptions, false);
+
+  const weekSelect = byId("aWeek");
+  const weekOptions = weekSelect.options;
+  for (let i = 0; i < weekOptions.length; i += 1) {
+    const option = weekOptions[i];
+    if (option.value) {
+      option.textContent = getFriendlyWeekText(option.value);
+    }
+  }
+
   renderSummary(state.config.summary);
+  renderSimpleList(byId("teacherList"), state.config.teacherOptions, "暂无教师");
   renderMetaList(byId("semesterList"), state.config.semesterOptions, handleDeleteSemester);
   renderMetaList(byId("classList"), state.config.classOptions, handleDeleteClass);
+  refreshContentList();
 }
 
 async function loadRecords() {
@@ -288,7 +352,7 @@ async function handleAddClass() {
 }
 
 async function handleImportTeachers() {
-  const messageEl = byId("adminImportMessage");
+  const messageEl = byId("adminTeacherMessage");
   setMessage(messageEl, "正在导入教师...", false);
   try {
     const names = readLines(byId("teacherImport").value);
@@ -297,6 +361,7 @@ async function handleImportTeachers() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ names: names }),
     });
+    byId("teacherImport").value = "";
     setMessage(messageEl, "导入成功，共 " + result.count + " 位教师", false);
     await loadAdminConfig();
   } catch (error) {
@@ -305,10 +370,13 @@ async function handleImportTeachers() {
 }
 
 async function handleImportContents() {
-  const messageEl = byId("adminImportMessage");
+  const messageEl = byId("adminContentMessage");
   setMessage(messageEl, "正在导入教学内容...", false);
   try {
     const semester = byId("contentSemester").value.trim();
+    if (!semester) {
+      throw new Error("请先选择目标学期");
+    }
     const contents = readLines(byId("contentImport").value);
     const result = await requestJSON("/api/import/contents", {
       method: "POST",
@@ -321,29 +389,8 @@ async function handleImportContents() {
       false
     );
     await loadAdminConfig();
-  } catch (error) {
-    setMessage(messageEl, error.message, true);
-  }
-}
-
-async function handleImportRecords() {
-  const messageEl = byId("adminImportMessage");
-  setMessage(messageEl, "正在导入签到记录...", false);
-  try {
-    const csvText = byId("recordsCsv").value;
-    const mode = byId("importMode").value;
-    const result = await requestJSON("/api/import/records", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ csvText: csvText, mode: mode }),
-    });
-    setMessage(
-      messageEl,
-      "导入完成，成功 " + result.insertedCount + " 条（" + (mode === "replace" ? "覆盖" : "追加") + "）",
-      false
-    );
-    await loadAdminConfig();
-    await loadRecords();
+    byId("contentSemester").value = result.semester;
+    refreshContentList();
   } catch (error) {
     setMessage(messageEl, error.message, true);
   }
@@ -373,6 +420,17 @@ async function bootstrap() {
     setMessage(byId("adminRecordsMessage"), "初始化失败：" + error.message, true);
   }
 
+  byId("adminTabs").addEventListener("click", function onTabClick(event) {
+    const target = event.target;
+    if (!target || target.tagName !== "BUTTON") {
+      return;
+    }
+    const tab = target.dataset.tab;
+    if (tab) {
+      switchTab(tab);
+    }
+  });
+
   byId("adminFilterForm").addEventListener("submit", function onSubmit(event) {
     event.preventDefault();
     loadRecords().catch(function onError(error) {
@@ -398,8 +456,8 @@ async function bootstrap() {
   byId("importContentsBtn").addEventListener("click", function onImportContents() {
     handleImportContents();
   });
-  byId("importRecordsBtn").addEventListener("click", function onImportRecords() {
-    handleImportRecords();
+  byId("contentSemester").addEventListener("change", function onChangeContentSemester() {
+    refreshContentList();
   });
 }
 

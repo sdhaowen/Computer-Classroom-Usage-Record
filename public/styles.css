@@ -61,7 +61,7 @@ body {
 
 .student-main {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
@@ -253,6 +253,41 @@ th {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-tab {
+  border: 1px solid #d8e3ff;
+  background: #eef3ff;
+  color: #2f4f9d;
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-tab:hover {
+  background: #e6eeff;
+}
+
+.admin-tab.is-active {
+  border-color: #2f6cf5;
+  background: #2f6cf5;
+  color: #fff;
+}
+
+.admin-tab-panel {
+  display: none;
+}
+
+.admin-tab-panel.is-active {
+  display: block;
 }
 
 .summary-card {

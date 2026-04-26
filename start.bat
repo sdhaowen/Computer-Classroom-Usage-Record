@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
-title 马桥镇陈庄小学计算机教室学生签到系统
+title Computer Classroom Sign-in System
 cd /d %~dp0
-echo 正在启动签到系统...
+echo Starting sign-in system...
 echo.
 node server.js
 pause

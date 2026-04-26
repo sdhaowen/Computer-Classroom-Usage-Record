@@ -22,36 +22,96 @@ const DEFAULT_CLASS_OPTIONS = [
 ];
 const DEFAULT_TEACHERS = ["王老师", "李老师"];
 const DEFAULT_CONTENTS = [
-  "第1周：机房规则与计算机基础认知",
-  "第2周：正确开关机与鼠标基础练习",
-  "第3周：键盘指法与英文输入练习",
-  "第4周：中文输入法使用与短句录入",
-  "第5周：文件与文件夹的创建、重命名",
-  "第6周：复制、粘贴、删除与回收站",
-  "第7周：画图工具入门：线条与颜色",
-  "第8周：画图工具进阶：图形组合",
-  "第9周：Word基础：输入与保存文档",
-  "第10周：Word排版：字体、段落与对齐",
-  "第11周：Word插入图片与简单表格",
-  "第12周：PPT基础：新建与版式",
-  "第13周：PPT编辑：插入图片与文本框",
-  "第14周：PPT动画与页面切换",
-  "第15周：浏览器基础与安全上网常识",
-  "第16周：搜索引擎使用与信息筛选",
-  "第17周：Scratch入门：角色与舞台",
-  "第18周：Scratch脚本积木基础",
-  "第19周：Scratch动画小作品制作",
-  "第20周：Scratch互动小游戏制作",
-  "第21周：算法思维：顺序与循环",
-  "第22周：算法思维：条件判断",
-  "第23周：数据与变量初步",
-  "第24周：信息技术道德与网络文明",
-  "第25周：综合实践：电子贺卡设计",
-  "第26周：综合实践：班级展示PPT制作",
-  "第27周：综合实践：信息检索与整理",
-  "第28周：项目完善与同伴互评",
-  "第29周：作品展示与口头讲解",
-  "第30周：学期复习与技能测评",
+  "3-1-1《寻找信息科技》",
+  "3-1-2《使用数字设备》",
+  "3-1-3《体验人机交互》",
+  "3-2-1《图片记录瞬间》",
+  "3-2-2《美化处理图片》",
+  "3-2-3《视频记录片段》",
+  "3-2-4《音频记录声音》",
+  "3-3-1《浏览网络资源》",
+  "3-3-2《在线搜索资源》",
+  "3-3-3《保存信息资源》",
+  "3-3-4《整理信息资源》",
+  "3-4-1《认识数字作品》",
+  "3-4-2《制作数字相册》",
+  "3-4-3《制作数字小报》",
+  "3-4-4《展示数字作品》",
+  "3-5-1《畅享在线交流》",
+  "3-5-2《参与网络社交》",
+  "3-5-3《在线行为规范》",
+  "3-5-4《认识数字身份》",
+  "3-6-1《体验在线学习》",
+  "3-6-2《分享学习资源》",
+  "3-6-3《探讨在线学习》",
+  "3-7-1《分解描述问题》",
+  "3-7-2《分组分派任务》",
+  "3-7-3《合作制作作品》",
+  "3-7-4《完善评价作品》",
+  "3-8-1《感悟在线社会》",
+  "3-8-2《初识人工智能》",
+  "3-8-3《了解自主可控》",
+  "3-8-4《在线安全防范》",
+  "4-1-1《数据宝藏在身边》",
+  "4-1-2《获取数据有方法》",
+  "4-1-3《寻找可靠数据源》",
+  "4-1-4《记录数据讲诀窍》",
+  "4-1-5《数据价值巧发现》",
+  "4-2-1《古往今来话编码》",
+  "4-2-2《数据编码随处见》",
+  "4-2-3《编码管理我知道》",
+  "4-2-4《二维码伴我生活》",
+  "4-2-5《数据错误及时验》",
+  "4-3-1《嘀嘀嗒嗒的秘密》",
+  "4-3-2《二值的黑白图像》",
+  "4-3-3《多彩的数字世界》",
+  "4-3-4《编码也能动起来》",
+  "4-3-5《自定编码讲规则》",
+  "4-4-1《数据管理与编码》",
+  "4-4-2《查找筛选讲效率》",
+  "4-4-3《排序计算有方法》",
+  "4-4-4《数据安全意识强》",
+  "4-4-5《保护数据小妙招》",
+  "4-5-1《展现数量的关系》",
+  "4-5-2《探寻趋势与规律》",
+  "4-5-3《挑战多角度比拼》",
+  "4-5-4《抽取文本汇词云》",
+  "4-5-5《知识图谱来帮忙》",
+  "4-5-6《用数据支撑观点》",
+  "4-6-1《数据点亮新生活》",
+  "4-6-2《大数据助力智能》",
+  "4-6-3《生成式人工智能》",
+  "4-6-4《应对智能新挑战》",
+  "5-1-1《生活处处有算法》",
+  "5-1-2《算法认识与体验》",
+  "5-1-3《游戏体验寻规律》",
+  "5-1-4《算法应用在身边》",
+  "5-2-1《数学运算讲方法》",
+  "5-2-2《判断选择用分支》",
+  "5-2-3《重复操作用循环》",
+  "5-2-4《算法验证与实现》",
+  "5-3-1《互传密信有诀窍》",
+  "5-3-2《猜数游戏有捷径》",
+  "5-3-3《闰年平年我知道(1)》",
+  "5-3-4《闰年平年我知道(2)》",
+  "5-4-1《让计算机会数数》",
+  "5-4-2《算法效率比一比》",
+  "5-4-3《简单密码易破解》",
+  "5-5-1《比较交换找最值》",
+  "5-5-2《选择排序轻松做》",
+  "5-5-3《冒泡排序齐体验(1)》",
+  "5-5-4《冒泡排序齐体验(2)》",
+  "5-5-5《化大为小桶排序》",
+  "5-6-1《鸡兔同笼巧计算》",
+  "5-6-2《兔子增长有规律(1)》",
+  "5-6-3《兔子增长有规律(2)》",
+  "5-7-1《多人过河巧安排》",
+  "5-7-2《有趣的七桥问题》",
+  "5-7-3《寻找最短的路径》",
+  "5-7-4《网页排名有策略》",
+  "5-8-1《认识决策树算法》",
+  "5-8-2《智能工具再体验》",
+  "5-8-3《生命游戏有规则》",
 ];
 
 function ensureDir(targetDir) {
@@ -213,9 +273,10 @@ function normalizeDB(raw) {
   if (semesters.indexOf(DEFAULT_SEMESTER) === -1) {
     semesters.unshift(DEFAULT_SEMESTER);
   }
-  if (!contentsBySemester[DEFAULT_SEMESTER] || !contentsBySemester[DEFAULT_SEMESTER].length) {
-    contentsBySemester[DEFAULT_SEMESTER] = DEFAULT_CONTENTS.slice();
-  }
+  const defaultSemesterContents = contentsBySemester[DEFAULT_SEMESTER] || [];
+  contentsBySemester[DEFAULT_SEMESTER] = uniqueTrimmedList(
+    DEFAULT_CONTENTS.concat(defaultSemesterContents)
+  );
 
   const recordList = [];
   for (let j = 0; j < recordsInput.length; j += 1) {
@@ -480,114 +541,6 @@ function listRecords(query, maxCount) {
   return filtered.slice(0, limited);
 }
 
-function parseCsvLine(line) {
-  const values = [];
-  let current = "";
-  let inQuotes = false;
-  let i = 0;
-  while (i < line.length) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i += 2;
-        continue;
-      }
-      inQuotes = !inQuotes;
-      i += 1;
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      values.push(current.trim());
-      current = "";
-      i += 1;
-      continue;
-    }
-    current += char;
-    i += 1;
-  }
-  values.push(current.trim());
-  return values;
-}
-
-function parseRecordsFromCSV(csvText) {
-  const lines = String(csvText || "")
-    .split(/\r?\n/)
-    .map(function trimLine(line) {
-      return line.trim();
-    })
-    .filter(Boolean);
-
-  if (!lines.length) {
-    return [];
-  }
-
-  const headers = parseCsvLine(lines[0]);
-  const indexMap = {
-    semester: headers.indexOf("学期"),
-    week: headers.indexOf("周次"),
-    className: headers.indexOf("班级"),
-    studentName: headers.indexOf("学生姓名"),
-    content: headers.indexOf("学习内容"),
-    machineStatus: headers.indexOf("机器情况"),
-    teacher: headers.indexOf("授课教师"),
-  };
-
-  const requiredKeys = Object.keys(indexMap);
-  for (let i = 0; i < requiredKeys.length; i += 1) {
-    const key = requiredKeys[i];
-    if (indexMap[key] === -1) {
-      throw new Error("CSV 表头缺少字段：" + key);
-    }
-  }
-
-  const records = [];
-  for (let row = 1; row < lines.length; row += 1) {
-    const columns = parseCsvLine(lines[row]);
-    records.push({
-      semester: columns[indexMap.semester],
-      week: columns[indexMap.week],
-      className: columns[indexMap.className],
-      studentName: columns[indexMap.studentName],
-      content: columns[indexMap.content],
-      machineStatus: columns[indexMap.machineStatus],
-      teacher: columns[indexMap.teacher],
-    });
-  }
-  return records;
-}
-
-function importRecords(recordsInput, mode) {
-  const imported = Array.isArray(recordsInput) ? recordsInput : [];
-  if (mode === "replace") {
-    db.records = [];
-  }
-
-  let insertedCount = 0;
-  for (let i = 0; i < imported.length; i += 1) {
-    const sanitized = sanitizeRecord(imported[i]);
-    if (typeof sanitized === "string") {
-      continue;
-    }
-    applyRecordSideEffects(sanitized);
-    const now = new Date().toISOString();
-    db.records.push({
-      id: generateRecordId(i),
-      semester: sanitized.semester,
-      week: sanitized.week,
-      className: sanitized.className,
-      studentName: sanitized.studentName,
-      content: sanitized.content,
-      machineStatus: sanitized.machineStatus,
-      teacher: sanitized.teacher,
-      createdAt: now,
-      updatedAt: now,
-    });
-    insertedCount += 1;
-  }
-  return insertedCount;
-}
-
 function buildConfig() {
   return {
     semesterOptions: db.semesters,
@@ -732,29 +685,6 @@ async function handleAPI(req, res, pathname, query) {
       message: "教学内容导入成功",
       semester: semester,
       count: contents.length,
-    });
-    return;
-  }
-
-  if (req.method === "POST" && pathname === "/api/import/records") {
-    const payload = await readBody(req);
-    const mode = payload.mode === "replace" ? "replace" : "append";
-    let records = [];
-    if (Array.isArray(payload.records)) {
-      records = payload.records;
-    } else if (payload.csvText) {
-      records = parseRecordsFromCSV(payload.csvText);
-    } else {
-      sendJSON(res, 400, { ok: false, message: "请提供 records 数组或 csvText" });
-      return;
-    }
-    const insertedCount = importRecords(records, mode);
-    saveDB();
-    sendJSON(res, 200, {
-      ok: true,
-      message: "签到记录导入完成",
-      insertedCount: insertedCount,
-      mode: mode,
     });
     return;
   }
