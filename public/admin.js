@@ -43,6 +43,10 @@ function readLines(text) {
 async function requestJSON(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
+  if (response.status === 401) {
+    window.location.href = "/admin/login";
+    throw new Error((data && data.message) || "请先登录后台管理");
+  }
   if (!response.ok || !data.ok) {
     throw new Error((data && data.message) || "请求失败");
   }
@@ -412,6 +416,15 @@ function exportCsv() {
   window.location.href = "/api/admin/export/records.csv" + (query ? "?" + query : "");
 }
 
+async function handleLogout() {
+  try {
+    await requestJSON("/api/admin/logout", { method: "POST" });
+  } catch (error) {
+    // Whether or not API call fails, always redirect to login page.
+  }
+  window.location.href = "/admin/login";
+}
+
 async function bootstrap() {
   try {
     await loadAdminConfig();
@@ -444,6 +457,9 @@ async function bootstrap() {
     });
   });
   byId("exportCsvBtn").addEventListener("click", exportCsv);
+  byId("logoutBtn").addEventListener("click", function onLogout() {
+    handleLogout();
+  });
   byId("addSemesterBtn").addEventListener("click", function onAddSemester() {
     handleAddSemester();
   });

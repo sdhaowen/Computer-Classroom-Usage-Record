@@ -41,6 +41,19 @@ node server.js
 - 本机：`http://127.0.0.1:3000`
 - 局域网：`http://<你的IP>:3000`
 
+### 后台登录验证
+
+- 后台登录页：`http://127.0.0.1:3000/admin/login`
+- 后台管理页：`http://127.0.0.1:3000/admin`（未登录会自动跳转到登录页）
+- 默认账号密码：
+  - 账号：`admin`
+  - 密码：`admin123`
+- 可通过环境变量覆盖后台账号密码：
+
+```bash
+ADMIN_USERNAME=your_admin ADMIN_PASSWORD=your_password node server.js
+```
+
 ## 4. CSV 导入说明
 
 ### 4.1 签到记录 CSV（中文表头）

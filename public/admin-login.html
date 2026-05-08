@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>后台登录 - 计算机教室签到</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-login-page">
+    <main class="admin-login-shell">
+      <section class="admin-login-card">
+        <h1>后台管理登录</h1>
+        <p>请输入管理员账号和密码后进入后台</p>
+        <form id="adminLoginForm" class="admin-login-form">
+          <label>
+            账号
+            <input id="adminUsername" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            密码
+            <input
+              id="adminPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <button type="submit" class="btn-primary">登录后台</button>
+        </form>
+        <p id="adminLoginMessage" class="message"></p>
+        <p class="helper-link"><a href="/">返回学生签到</a></p>
+      </section>
+    </main>
+    <script src="/admin-login.js"></script>
+  </body>
+</html>
