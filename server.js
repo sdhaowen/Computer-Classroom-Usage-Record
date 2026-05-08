@@ -120,6 +120,18 @@ const DEFAULT_CONTENTS = [
 ];
 const adminSessions = Object.create(null);
 
+function nowText() {
+  return new Date().toISOString();
+}
+
+function logInfo(message) {
+  console.log("[" + nowText() + "] " + message);
+}
+
+function logError(message) {
+  console.error("[" + nowText() + "] ERROR: " + message);
+}
+
 function ensureDir(targetDir) {
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
@@ -1071,8 +1083,32 @@ const server = http.createServer(async function onRequest(req, res) {
   }
 });
 
+server.on("error", function onServerError(error) {
+  if (error && error.code === "EADDRINUSE") {
+    logError("Port " + PORT + " is already in use.");
+    logError("Please close the program using this port, then restart.");
+    process.exit(1);
+    return;
+  }
+  logError(error && error.message ? error.message : "Unexpected server error");
+  process.exit(1);
+});
+
+process.on("uncaughtException", function onUncaughtException(error) {
+  logError("Uncaught exception: " + (error && error.stack ? error.stack : error));
+  process.exit(1);
+});
+
+process.on("unhandledRejection", function onUnhandledRejection(reason) {
+  logError("Unhandled rejection: " + (reason && reason.stack ? reason.stack : reason));
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, function onReady() {
   const ips = getLocalIPv4List();
+  logInfo("Server started successfully.");
+  logInfo("Student page: http://127.0.0.1:" + PORT);
+  logInfo("Admin page: http://127.0.0.1:" + PORT + "/admin");
   console.log("======================================");
   console.log("计算机教室签到与后台管理系统 已启动");
   console.log("学生签到页面: http://127.0.0.1:" + PORT);
