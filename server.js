@@ -1106,16 +1106,25 @@ process.on("unhandledRejection", function onUnhandledRejection(reason) {
 
 server.listen(PORT, HOST, function onReady() {
   const ips = getLocalIPv4List();
+  const displayDbPath = path.relative(__dirname, DB_PATH) || DB_PATH;
   logInfo("Server started successfully.");
   logInfo("Student page: http://127.0.0.1:" + PORT);
   logInfo("Admin page: http://127.0.0.1:" + PORT + "/admin");
-  console.log("======================================");
-  console.log("计算机教室签到与后台管理系统 已启动");
-  console.log("学生签到页面: http://127.0.0.1:" + PORT);
-  console.log("后台管理页面: http://127.0.0.1:" + PORT + "/admin");
-  for (let i = 0; i < ips.length; i += 1) {
-    console.log("局域网访问: http://" + ips[i] + ":" + PORT);
+  console.log("");
+  console.log("==================================================");
+  console.log("  计算机教室签到与后台管理系统");
+  console.log("--------------------------------------------------");
+  console.log("[学生端] http://127.0.0.1:" + PORT);
+  console.log("[后台端] http://127.0.0.1:" + PORT + "/admin");
+  if (ips.length > 0) {
+    console.log("[局域网]");
+    for (let i = 0; i < ips.length; i += 1) {
+      console.log("  - http://" + ips[i] + ":" + PORT);
+    }
+  } else {
+    console.log("[局域网] 未检测到可用 IPv4 地址");
   }
-  console.log("数据文件: " + DB_PATH);
-  console.log("======================================");
+  console.log("[数据文件] " + displayDbPath);
+  console.log("==================================================");
+  console.log("");
 });
