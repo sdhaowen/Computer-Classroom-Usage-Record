@@ -55,7 +55,6 @@ if not "%EXIT_CODE%"=="0" (
 ) else (
   echo 服务已停止。
 )
-
 pause
 popd >nul
 exit /b %EXIT_CODE%
